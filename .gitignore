@@ -1,1 +1,13 @@
-demo/
+.DS_Store
+.env
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.ty/
+
+demo/var/datasets/
+demo/var/indexes/
+demo/var/cache/
+demo/var/artifacts/
