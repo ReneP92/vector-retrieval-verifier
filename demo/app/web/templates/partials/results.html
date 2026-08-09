@@ -1,0 +1,71 @@
+<div class="result-header">
+  <div>
+    <p class="eyebrow dark">Trace complete / {{ result.retrieval.trace.strategy.value | replace('_', ' + ') }}</p>
+    <h2>{{ result.retrieval.hits | length }} passages retrieved</h2>
+  </div>
+  <div class="timing-strip">
+    {% for stage, duration in result.retrieval.trace.stage_durations_ms.items() %}
+    <span><strong>{{ stage }}</strong>{{ duration }} ms</span>
+    {% endfor %}
+  </div>
+</div>
+
+{% if result.answer %}
+<article class="answer-panel">
+  <div class="answer-label">Generated synthesis</div>
+  <p>{{ result.answer.text }}</p>
+  {% if result.answer.cited_document_ids %}
+  <div class="citation-row">
+    {% for document_id in result.answer.cited_document_ids %}
+    <span>[{{ document_id }}]</span>
+    {% endfor %}
+  </div>
+  {% endif %}
+</article>
+{% endif %}
+
+<div class="passage-list">
+  {% for hit in result.retrieval.hits %}
+  <article class="passage-card" id="passage-{{ hit.document_id }}">
+    <div class="rank-block">
+      <span>rank</span>
+      <strong>{{ "%02d" | format(hit.rank) }}</strong>
+    </div>
+    <div class="passage-body">
+      <div class="passage-meta">
+        <span class="document-id">{{ hit.document_id }}</span>
+        <div class="stage-lineage">
+          {% for stage, rank in hit.stage_ranks.items() %}
+          <span><b>{{ stage }}</b> #{{ rank }}</span>
+          {% endfor %}
+        </div>
+      </div>
+      {% if hit.title %}<h3>{{ hit.title }}</h3>{% endif %}
+      <p>{{ hit.text }}</p>
+      <details>
+        <summary>Inspect stage scores</summary>
+        <dl class="score-grid">
+          {% for stage, score in hit.stage_scores.items() %}
+          <div><dt>{{ stage }}</dt><dd>{{ "%.6f" | format(score) }}</dd></div>
+          {% endfor %}
+        </dl>
+      </details>
+    </div>
+    <div class="final-score">
+      <span>final score</span>
+      <strong>{{ "%.5f" | format(hit.score) }}</strong>
+    </div>
+  </article>
+  {% else %}
+  <div class="empty-state"><h2>No passages were returned.</h2></div>
+  {% endfor %}
+</div>
+
+<footer class="trace-footer">
+  <span>Corpus SHA-256</span>
+  <code>{{ result.retrieval.trace.corpus_hash[:16] }}…</code>
+  <span>Parameters</span>
+  {% for key, value in result.retrieval.trace.parameters.items() %}
+  <code>{{ key }}={{ value }}</code>
+  {% endfor %}
+</footer>

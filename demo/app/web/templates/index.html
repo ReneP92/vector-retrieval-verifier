@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+
+{% block body %}
+<div class="shell">
+  <aside class="rail">
+    <div>
+      <p class="eyebrow">Retrieval lab / 01</p>
+      <h1>Evidence before answers.</h1>
+      <p class="rail-copy">
+        Inspect how lexical, semantic, fused, and reranked search move the same FiQA passages.
+      </p>
+    </div>
+
+    <section class="status-panel" aria-labelledby="status-title">
+      <div class="section-heading">
+        <h2 id="status-title">System status</h2>
+        <span class="pulse" aria-hidden="true"></span>
+      </div>
+      <dl class="status-list">
+        {% for component, status in container.component_status.items() %}
+        <div>
+          <dt>{{ component }}</dt>
+          <dd class="{% if status.startswith('ready') %}ready{% else %}waiting{% endif %}">
+            {{ status }}
+          </dd>
+        </div>
+        {% endfor %}
+      </dl>
+    </section>
+
+    <div class="rail-meta">
+      <span>BEIR</span>
+      <strong>FiQA-2018</strong>
+      <span>57,638 passages / 648 test queries</span>
+    </div>
+  </aside>
+
+  <main class="workspace">
+    <header class="topline">
+      <div>
+        <p class="eyebrow dark">RAG Retrieval Workbench</p>
+        <p class="topline-copy">One corpus. Four retrieval paths. Full stage visibility.</p>
+      </div>
+      <div class="topline-actions">
+        <button
+          class="theme-toggle"
+          type="button"
+          data-theme-toggle
+          aria-pressed="false"
+          aria-label="Enable night mode"
+        >
+          <span class="theme-toggle-indicator" aria-hidden="true"></span>
+          <span data-theme-label>Night mode</span>
+        </button>
+        <a class="api-link" href="/docs">API reference <span>↗</span></a>
+      </div>
+    </header>
+
+    <section class="query-station" aria-labelledby="query-title">
+      <div class="station-number">01</div>
+      <div class="station-content">
+        <div class="station-heading">
+          <div>
+            <h2 id="query-title">Run a retrieval trace</h2>
+            <p>Ask a finance question or start from a labeled FiQA query.</p>
+          </div>
+          <span class="method-note">Scores remain method-specific</span>
+        </div>
+
+        <form
+          class="query-form"
+          hx-post="/search"
+          hx-target="#results"
+          hx-swap="innerHTML"
+          hx-indicator="#search-indicator"
+        >
+          <label class="query-label" for="query">Question</label>
+          <div class="query-input-wrap">
+            <textarea
+              id="query"
+              name="query"
+              rows="3"
+              maxlength="2000"
+              required
+              placeholder="Where should I keep money for an emergency fund?"
+            ></textarea>
+            <span class="shortcut">⌘ ↵</span>
+          </div>
+
+          <div class="controls">
+            <label>
+              <span>Retrieval path</span>
+              <select name="strategy">
+                {% for strategy in strategies %}
+                <option
+                  value="{{ strategy.value }}"
+                  {% if strategy not in container.available_strategies %}disabled{% endif %}
+                  {% if strategy == default_strategy %}selected{% endif %}
+                >
+                  {{ strategy.value | replace('_', ' + ') | upper }}
+                  {% if strategy not in container.available_strategies %} · unavailable{% endif %}
+                </option>
+                {% endfor %}
+              </select>
+            </label>
+            <label>
+              <span>Results</span>
+              <select name="top_k">
+                <option value="5">5</option>
+                <option value="10" selected>10</option>
+                <option value="20">20</option>
+              </select>
+            </label>
+            <label class="toggle-row">
+              <input
+                type="checkbox"
+                name="generate_answer"
+                value="true"
+                {% if not container.generation_available %}disabled{% endif %}
+              >
+              <span class="toggle" aria-hidden="true"></span>
+              <span>Generate answer</span>
+            </label>
+            <button class="run-button" type="submit" {% if not container.available_strategies %}disabled{% endif %}>
+              <span>Run trace</span>
+              <span class="button-arrow">→</span>
+            </button>
+          </div>
+        </form>
+
+        {% if sample_queries %}
+        <div class="samples">
+          <p>Sample queries</p>
+          <div class="sample-list">
+            {% for sample in sample_queries[:4] %}
+            <button type="button" class="sample-query" data-query="{{ sample.text }}">
+              <span>{{ "%02d" | format(loop.index) }}</span>{{ sample.text }}
+            </button>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </section>
+
+    <div id="search-indicator" class="search-indicator htmx-indicator" role="status">
+      <span></span>
+      Running retrieval stages. Provider-backed paths may take a moment.
+    </div>
+
+    <section id="results" class="results-region" aria-live="polite">
+      {% if not container.available_strategies %}
+      <div class="empty-state setup-state">
+        <p class="empty-index">Setup required</p>
+        <h2>Prepare FiQA before running a trace.</h2>
+        <p>Download the benchmark, configure provider keys, and build the retrieval indexes.</p>
+        <code>uv run python -m scripts.download_fiqa<br>uv run python -m scripts.build_indexes --all</code>
+      </div>
+      {% else %}
+      <div class="empty-state">
+        <p class="empty-index">Trace output</p>
+        <h2>Results will appear here.</h2>
+        <p>Each passage will retain its rank and score from every retrieval stage it passed through.</p>
+      </div>
+      {% endif %}
+    </section>
+  </main>
+</div>
+{% endblock %}

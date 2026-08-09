@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Inspect retrieval behavior over the BEIR FiQA benchmark.">
+    <title>{% block title %}RAG Retrieval Workbench{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/styles.css') }}?v={{ asset_versions['styles.css'] }}">
+    <script src="https://unpkg.com/htmx.org@2.0.6" defer></script>
+    <script src="{{ url_for('static', path='/app.js') }}?v={{ asset_versions['app.js'] }}" defer></script>
+  </head>
+  <body>
+    {% block body %}{% endblock %}
+  </body>
+</html>
