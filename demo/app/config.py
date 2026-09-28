@@ -47,6 +47,10 @@ class Settings(BaseSettings):
         return self.data_dir / "qrels" / "test.tsv"
 
     @property
+    def eval_dir(self) -> Path:
+        return DEMO_ROOT / "var" / "eval"
+
+    @property
     def bm25_dir(self) -> Path:
         return self.index_dir / "bm25"
 

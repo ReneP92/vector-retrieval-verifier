@@ -1,0 +1,19 @@
+{
+  "dataset": "fiqa",
+  "corpus_hash": "ff593e4df9933955dc3af83be0c3fa28ac7465f627e08c2e53593e734d506517",
+  "mode": "deterministic",
+  "depth": 100,
+  "reports": [
+    {
+      "strategy": "bm25",
+      "num_queries": 20,
+      "metrics": {
+        "ndcg@10": 0.19803489278921133,
+        "mrr@10": 0.17847222222222223,
+        "recall@10": 0.3416666666666667,
+        "recall@100": 0.4833333333333333
+      },
+      "duration_seconds": 0.021828082972206175
+    }
+  ]
+}

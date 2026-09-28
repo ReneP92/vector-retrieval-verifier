@@ -1,9 +1,17 @@
 import json
-from collections.abc import Iterable
+import random
+import time
+from collections.abc import Callable, Iterable
 from pathlib import Path
 
 import numpy as np
-from openai import OpenAI
+from openai import (
+    APIConnectionError,
+    APITimeoutError,
+    InternalServerError,
+    OpenAI,
+    RateLimitError,
+)
 
 from app.adapters.retrieval.corpus_policy import (
     policy_manifest,
@@ -13,6 +21,15 @@ from app.adapters.retrieval.corpus_policy import (
 from app.domain.models import SearchHit
 from app.domain.ports import CorpusRepository, TextEmbedder
 
+# Errors worth retrying: provider-side rate limits, transient 5xx, and network
+# blips. Client errors (auth, bad request) are not retried - they never recover.
+_RETRYABLE_ERRORS = (
+    RateLimitError,
+    APITimeoutError,
+    APIConnectionError,
+    InternalServerError,
+)
+
 
 class OpenAIEmbedder:
     def __init__(
@@ -21,9 +38,18 @@ class OpenAIEmbedder:
         api_key: str,
         model_name: str,
         base_url: str | None = None,
+        max_retries: int = 8,
+        initial_backoff: float = 1.0,
+        max_backoff: float = 60.0,
+        sleep: Callable[[float], None] = time.sleep,
     ) -> None:
-        self._client = OpenAI(api_key=api_key, base_url=base_url)
+        # Retries are handled here, so the SDK does not add a second, hidden layer.
+        self._client = OpenAI(api_key=api_key, base_url=base_url, max_retries=0)
         self._model_name = model_name
+        self._max_retries = max_retries
+        self._initial_backoff = initial_backoff
+        self._max_backoff = max_backoff
+        self._sleep = sleep
 
     @property
     def model_name(self) -> str:
@@ -33,11 +59,42 @@ class OpenAIEmbedder:
         materialized = list(texts)
         if not materialized:
             return np.empty((0, 0), dtype=np.float32)
-        response = self._client.embeddings.create(model=self._model_name, input=materialized)
+        response = self._create_with_retry(materialized)
         ordered = sorted(response.data, key=lambda item: item.index)
         if len(ordered) != len(materialized):
             raise ValueError("Embedding provider returned an unexpected number of vectors")
         return np.asarray([item.embedding for item in ordered], dtype=np.float32)
+
+    def _create_with_retry(self, inputs: list[str]):
+        for attempt in range(self._max_retries + 1):
+            try:
+                return self._client.embeddings.create(model=self._model_name, input=inputs)
+            except _RETRYABLE_ERRORS as error:
+                if attempt == self._max_retries:
+                    raise
+                self._sleep(self._backoff_delay(attempt, error))
+
+    def _backoff_delay(self, attempt: int, error: Exception) -> float:
+        delay = min(self._max_backoff, self._initial_backoff * (2**attempt))
+        retry_after = _retry_after_seconds(error)
+        if retry_after is not None:
+            delay = min(self._max_backoff, max(delay, retry_after))
+        # Full jitter avoids synchronized retries hammering the provider in lockstep.
+        return random.uniform(0.0, delay)
+
+
+def _retry_after_seconds(error: Exception) -> float | None:
+    response = getattr(error, "response", None)
+    headers = getattr(response, "headers", None)
+    if headers is None:
+        return None
+    raw = headers.get("retry-after")
+    if raw is None:
+        return None
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return None
 
 
 class DenseRetriever:

@@ -37,6 +37,10 @@ class BeirCorpusRepository:
     def sample_queries(self, limit: int) -> list[QueryExample]:
         return self._queries[: max(0, limit)]
 
+    def queries(self) -> list[QueryExample]:
+        return self._queries
+
+
     @staticmethod
     def _load_documents(path: Path) -> list[Document]:
         documents: list[Document] = []

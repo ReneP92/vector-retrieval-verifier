@@ -1,6 +1,7 @@
 import csv
 from dataclasses import dataclass
 from pathlib import Path
+from collections import defaultdict
 
 
 @dataclass(frozen=True)
@@ -32,3 +33,13 @@ def find_excluded_positive_qrels(
                     )
                 )
     return matches
+
+
+def load_qrels(qrels_path: Path) -> dict[str, set[str]]:
+    """Map each quyery id to the set of its positively-judged document ids."""
+    relevant: dict[str, set[str]] = defaultdict(set)
+    with qrels_path.open(encoding="utf-8", newline="") as source:
+        for row in csv.DictReader(source, delimiter="\t"):
+            if int(row["score"]) > 0:
+                relevant[str(row["query-id"])].add(str(row["corpus-id"]))
+    return dict(relevant)

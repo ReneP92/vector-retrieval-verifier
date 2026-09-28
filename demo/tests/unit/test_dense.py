@@ -1,14 +1,19 @@
 import json
 from collections.abc import Iterable
 from pathlib import Path
+from types import SimpleNamespace
 
+import httpx
 import numpy as np
 import pytest
+from openai import BadRequestError, RateLimitError
 
 from app.adapters.datasets.beir import BeirCorpusRepository
+from app.adapters.retrieval import dense_openai
 from app.adapters.retrieval.corpus_policy import policy_manifest, prepare_documents
 from app.adapters.retrieval.dense_openai import (
     DenseRetriever,
+    OpenAIEmbedder,
     build_dense_index,
 )
 
@@ -155,3 +160,104 @@ class CapturingEmbedder:
         materialized = list(texts)
         self.inputs.extend(materialized)
         return np.asarray([[1.0, 0.0] for _ in materialized], dtype=np.float32)
+
+
+def _status_error(cls, status: int, headers: dict[str, str] | None = None):
+    request = httpx.Request("POST", "https://api.openai.com/v1/embeddings")
+    response = httpx.Response(status, headers=headers or {}, request=request)
+    return cls("provider error", response=response, body=None)
+
+
+def _embedding_response(count: int):
+    return SimpleNamespace(
+        data=[SimpleNamespace(index=i, embedding=[1.0, 0.0]) for i in range(count)]
+    )
+
+
+class _FakeEmbeddings:
+    def __init__(self, behaviors: list) -> None:
+        self._behaviors = behaviors
+        self.calls = 0
+
+    def create(self, *, model: str, input: list[str]):
+        behavior = self._behaviors[self.calls]
+        self.calls += 1
+        if isinstance(behavior, Exception):
+            raise behavior
+        return behavior
+
+
+def _embedder_with_client(behaviors: list) -> tuple[OpenAIEmbedder, list[float], _FakeEmbeddings]:
+    slept: list[float] = []
+    embedder = OpenAIEmbedder(
+        api_key="test-key",
+        model_name="text-embedding-3-small",
+        max_retries=5,
+        initial_backoff=1.0,
+        max_backoff=60.0,
+        sleep=slept.append,
+    )
+    fake = _FakeEmbeddings(behaviors)
+    # A structural stand-in for the OpenAI client; only .embeddings.create is exercised.
+    embedder._client = SimpleNamespace(embeddings=fake)  # ty: ignore[invalid-assignment]
+    return embedder, slept, fake
+
+
+def test_embed_retries_rate_limit_then_succeeds() -> None:
+    behaviors = [
+        _status_error(RateLimitError, 429),
+        _status_error(RateLimitError, 429),
+        _embedding_response(1),
+    ]
+    embedder, slept, fake = _embedder_with_client(behaviors)
+
+    vectors = embedder.embed(["passage"])
+
+    assert vectors.shape == (1, 2)
+    assert fake.calls == 3
+    assert len(slept) == 2
+
+
+def test_embed_gives_up_after_max_retries() -> None:
+    behaviors = [_status_error(RateLimitError, 429) for _ in range(4)]
+    embedder, slept, fake = _embedder_with_client(behaviors)
+    embedder._max_retries = 3
+
+    with pytest.raises(RateLimitError):
+        embedder.embed(["passage"])
+
+    assert fake.calls == 4
+    assert len(slept) == 3
+
+
+def test_embed_does_not_retry_client_error() -> None:
+    behaviors = [_status_error(BadRequestError, 400)]
+    embedder, slept, fake = _embedder_with_client(behaviors)
+
+    with pytest.raises(BadRequestError):
+        embedder.embed(["passage"])
+
+    assert fake.calls == 1
+    assert slept == []
+
+
+def test_backoff_grows_and_caps(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Collapse full jitter to its upper bound so the base delay is observable.
+    monkeypatch.setattr(dense_openai.random, "uniform", lambda _low, high: high)
+    embedder, _slept, _fake = _embedder_with_client([])
+    error = _status_error(RateLimitError, 429)
+
+    assert embedder._backoff_delay(0, error) == 1.0
+    assert embedder._backoff_delay(3, error) == 8.0
+    assert embedder._backoff_delay(10, error) == 60.0
+
+
+def test_backoff_honors_retry_after_within_cap(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(dense_openai.random, "uniform", lambda _low, high: high)
+    embedder, _slept, _fake = _embedder_with_client([])
+
+    with_hint = _status_error(RateLimitError, 429, {"retry-after": "5"})
+    assert embedder._backoff_delay(0, with_hint) == 5.0
+
+    huge_hint = _status_error(RateLimitError, 429, {"retry-after": "1000"})
+    assert embedder._backoff_delay(0, huge_hint) == 60.0
