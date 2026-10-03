@@ -115,4 +115,4 @@ docker-up:
 
 # Run the evaluation pipeline, e.g. `just eval bm25 deterministic`.
 eval strategy mode *flags:
-    uv run python -m scripts.evaluate run {{strategy}} {{mode}} {{flags}}
+    uv run python -m scripts.evaluate run --strategy {{strategy}} --mode {{mode}} {{flags}}

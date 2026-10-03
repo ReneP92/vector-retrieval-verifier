@@ -76,13 +76,13 @@ def _resolve_strategies(
 def _persist(report: EvaluationReport, eval_dir: Path) -> None:
     eval_dir.mkdir(parents=True, exist_ok=True)
     path = eval_dir / f"{report.dataset}-{report.mode.value}.json"
-    path.write_text(report.model_dump_json(indent=2), encoding="utf-8")
+    path.write_text(report.model_dump_json(indent=2) + "\n", encoding="utf-8")
     logger.info(f"Wrote evaluation report to {path}")
 
 
 def _log_summary(report: EvaluationReport) -> None:
     for item in report.reports:
         scores = "  ".join(f"{name}={value:.4f}" for name, value in item.metrics.items())
-        logger. info(f"{item.strategy.value:<12} [{item.num_queries} q,{item.duration_seconds:.1f}s] {scores}")
+        logger.info(f"{item.strategy.value:<12} [{item.num_queries} q,{item.duration_seconds:.1f}s] {scores}")
     
 

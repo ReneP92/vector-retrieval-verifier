@@ -32,9 +32,7 @@ def run(
         depth=depth,
         sample=sample
     )
-    for item in report.reports:
-        scores = "  ".join(f"{name}={value:.4f}" for name, value in item.metrics.items())
-        typer.echo(f"{item.strategy.value:<12} {scores}")
+    typer.echo(report.model_dump_json(indent=2))
 
 
 if __name__ == "__main__":
