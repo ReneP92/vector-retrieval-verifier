@@ -1,9 +1,9 @@
 """
-Deterministic IR (Information Retrieval) metrics for binary-relevance qrels (nDCG, Recall, MRR).
+IR ranking metrics (nDCG, Recall, MRR) scored against human-labeled binary qrels.
 
 """
 
-import math 
+import math
 from collections.abc import Sequence
 
 NDCG_K = 10
@@ -24,7 +24,7 @@ def ndcg_at_k(ranked_ids: Sequence[str], relevant: set[str], k: int) -> float:
 
 
 def recall_at_k(ranked_ids: Sequence[str], relevant: set[str], k: int) -> float:
-    if not relevant: 
+    if not relevant:
         return 0.0
     return len(set(ranked_ids[:k]) & relevant) / len(relevant)
 
@@ -52,6 +52,5 @@ def mean_scores(per_query: list[dict[str, float]]) -> dict[str, float]:
     if not per_query:
         return {}
     return {
-        name: sum(scores[name] for scores in per_query) / len(per_query)
-        for name in per_query[0]
+        name: sum(scores[name] for scores in per_query) / len(per_query) for name in per_query[0]
     }

@@ -8,21 +8,22 @@ from app.bootstrap import build_container
 from app.config import Settings, get_settings
 from app.domain.models import RetrievalStrategy
 from common.telemetry import TelemetryLogger
-from eval.deterministic import runner
 from eval.models import EvaluationMode, EvaluationReport
+from eval.qrels import runner
 
 logger = TelemetryLogger(__name__)
+
 
 def run_evaluation(
     mode: EvaluationMode,
     strategies: Sequence[RetrievalStrategy] | None = None,
     *,
-    depth: int  = 100,
+    depth: int = 100,
     sample: int | None = None,
     settings: Settings | None = None,
 ) -> EvaluationReport:
     """Load the FiQA test split, replay it through each strategy, and persist a report."""
-    if mode is not EvaluationMode.DETERMINISTIC: 
+    if mode is not EvaluationMode.QRELS:
         raise NotImplementedError(f"Evaluation mode '{mode}' is not implemented yet.")
 
     settings = settings or get_settings()
@@ -33,18 +34,20 @@ def run_evaluation(
     settings = settings.model_copy(update={"candidate_k": max(settings.candidate_k, depth)})
 
     container = build_container(settings)
-    if container.pipeline is None or container.repository is None: 
+    if container.pipeline is None or container.repository is None:
         raise RuntimeError(f"Dataset unavailable: {container.component_status.get('dataset')}")
 
     selected = _resolve_strategies(strategies, container.available_strategies)
 
     qrels = load_qrels(settings.qrels_path)
-    if sample is not None: 
+    if sample is not None:
         qrels = {qid: qrels[qid] for qid in list(qrels)[:sample]}
-    queries = {q.query_id: q.text for q  in container.repository.queries() if q.query_id in qrels}
+    queries = {q.query_id: q.text for q in container.repository.queries() if q.query_id in qrels}
     qrels = {qid: relevant for qid, relevant in qrels.items() if qid in queries}
 
-    logger.info(f"Evaluating {[s.value for s in selected]} over {len(qrels)} queries at depth {depth}")
+    logger.info(
+        f"Evaluating {[s.value for s in selected]} over {len(qrels)} queries at depth {depth}"
+    )
     report = runner.evaluate_strategies(
         container.pipeline,
         qrels,
@@ -69,7 +72,9 @@ def _resolve_strategies(
     if unavailable := [strategy for strategy in wanted if strategy not in available]:
         logger.warning(f"Skipping unavailable strategies: {[s.value for s in unavailable]}")
     if not selected:
-        raise RuntimeError("No requested strategy is available. Build indexes / configure providers.")
+        raise RuntimeError(
+            "No requested strategy is available. Build indexes / configure providers."
+        )
     return selected
 
 
@@ -83,6 +88,6 @@ def _persist(report: EvaluationReport, eval_dir: Path) -> None:
 def _log_summary(report: EvaluationReport) -> None:
     for item in report.reports:
         scores = "  ".join(f"{name}={value:.4f}" for name, value in item.metrics.items())
-        logger.info(f"{item.strategy.value:<12} [{item.num_queries} q,{item.duration_seconds:.1f}s] {scores}")
-    
-
+        logger.info(
+            f"{item.strategy.value:<12} [{item.num_queries} q,{item.duration_seconds:.1f}s] {scores}"
+        )

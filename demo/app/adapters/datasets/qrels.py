@@ -1,7 +1,7 @@
 import csv
+from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from collections import defaultdict
 
 
 @dataclass(frozen=True)

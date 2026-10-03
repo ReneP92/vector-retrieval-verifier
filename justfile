@@ -113,6 +113,6 @@ docker-index:
 docker-up:
     docker compose up --build
 
-# Run the evaluation pipeline, e.g. `just eval bm25 deterministic`.
+# Run the evaluation pipeline, e.g. `just eval bm25 qrels`.
 eval strategy mode *flags:
     uv run python -m scripts.evaluate run --strategy {{strategy}} --mode {{mode}} {{flags}}

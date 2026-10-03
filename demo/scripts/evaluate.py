@@ -1,3 +1,5 @@
+from typing import Annotated
+
 import typer
 
 from app.domain.models import RetrievalStrategy
@@ -18,20 +20,26 @@ def main() -> None:
 
 @app.command()
 def run(
-    strategy: list[RetrievalStrategy] = typer.Option(
-        None, "--strategy", "-s", help="Strategy to evaluate (repeatable). Default: all available."
-    ),
-    mode: EvaluationMode = typer.Option(EvaluationMode.DETERMINISTIC, "--mode", "-m"),
-    depth: int = typer.Option(100, "--depth", "-d", help="Retrieval depth (>= max recall cutoff)."),
-    sample: int | None = typer.Option(None, "--sample", help="Evaluate only the first N queries."),    
-)-> None:
-    """Run the evaluation pipeline and write a report to var/eval/."""
-    report = run_evaluation(
-        mode,
-        strategy or None, 
-        depth=depth,
-        sample=sample
-    )
+    strategy: Annotated[
+        list[RetrievalStrategy] | None,
+        typer.Option(
+            "--strategy", "-s", help="Strategy to evaluate (repeatable). Default: all available."
+        ),
+    ] = None,
+    mode: Annotated[EvaluationMode, typer.Option("--mode", "-m")] = EvaluationMode.QRELS,
+    depth: Annotated[
+        int, typer.Option("--depth", "-d", help="Retrieval depth (>= max recall cutoff).")
+    ] = 100,
+    sample: Annotated[
+        int | None, typer.Option("--sample", help="Evaluate only the first N queries.")
+    ] = None,
+) -> None:
+    """Run the evaluation pipeline, print the JSON report to stdout, and write it to var/eval/."""
+    try:
+        report = run_evaluation(mode, strategy or None, depth=depth, sample=sample)
+    except (NotImplementedError, RuntimeError) as error:
+        logger.error(str(error))
+        raise typer.Exit(code=1) from error
     typer.echo(report.model_dump_json(indent=2))
 
 

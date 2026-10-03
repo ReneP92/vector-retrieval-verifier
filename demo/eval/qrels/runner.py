@@ -7,8 +7,9 @@ from time import perf_counter
 
 from app.domain.models import RetrievalStrategy
 from app.services.retrieval import RetrievalPipeline
-from eval.deterministic import metrics
 from eval.models import EvaluationMode, EvaluationReport, StrategyReport
+from eval.qrels import metrics
+
 
 def evaluate_strategies(
     pipeline: RetrievalPipeline,
@@ -16,26 +17,24 @@ def evaluate_strategies(
     queries: Mapping[str, str],
     strategies: Sequence[RetrievalStrategy],
     *,
-    dataset: str, 
+    dataset: str,
     corpus_hash: str,
     depth: int = 100,
-) -> EvaluationReport: 
+) -> EvaluationReport:
     reports = [
         _score_strategy(
-            pipeline=pipeline, 
-            qrels=qrels, 
-            queries=queries, 
-            strategy=strategy,
-            depth=depth
-        ) for strategy in strategies
+            pipeline=pipeline, qrels=qrels, queries=queries, strategy=strategy, depth=depth
+        )
+        for strategy in strategies
     ]
     return EvaluationReport(
         dataset=dataset,
         corpus_hash=corpus_hash,
-        mode=EvaluationMode.DETERMINISTIC,
+        mode=EvaluationMode.QRELS,
         depth=depth,
         reports=reports,
     )
+
 
 def _score_strategy(
     pipeline: RetrievalPipeline,
@@ -56,5 +55,3 @@ def _score_strategy(
         metrics=metrics.mean_scores(per_query),
         duration_seconds=perf_counter() - started,
     )
-
-

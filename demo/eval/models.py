@@ -1,12 +1,13 @@
 from enum import StrEnum
+
 from pydantic import BaseModel
 
 from app.domain.models import RetrievalStrategy
 
 
 class EvaluationMode(StrEnum):
-    DETERMINISTIC = "deterministic"
-    SEMANTIC = "semantic"
+    QRELS = "qrels"
+    LLM_JUDGE = "llm_judge"
 
 
 class StrategyReport(BaseModel):

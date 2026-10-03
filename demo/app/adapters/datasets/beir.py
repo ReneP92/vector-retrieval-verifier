@@ -40,7 +40,6 @@ class BeirCorpusRepository:
     def queries(self) -> list[QueryExample]:
         return self._queries
 
-
     @staticmethod
     def _load_documents(path: Path) -> list[Document]:
         documents: list[Document] = []

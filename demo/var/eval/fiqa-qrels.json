@@ -1,7 +1,7 @@
 {
   "dataset": "fiqa",
   "corpus_hash": "ff593e4df9933955dc3af83be0c3fa28ac7465f627e08c2e53593e734d506517",
-  "mode": "deterministic",
+  "mode": "qrels",
   "depth": 100,
   "reports": [
     {
@@ -13,7 +13,7 @@
         "recall@10": 0.3195,
         "recall@100": 0.49916666666666665
       },
-      "duration_seconds": 0.07746358402073383
+      "duration_seconds": 0.06505004200153053
     }
   ]
 }
