@@ -3,9 +3,9 @@
 A local FastAPI and HTMX application for inspecting BM25, dense, RRF, and
 cross-encoder-reranked retrieval over the BEIR FiQA-2018 dataset.
 
-This demo does not calculate evaluation metrics yet. It establishes the shared
-retrieval path that future offline evaluation will replay through the RAG
-Retrieval Evaluator.
+Interactive search and offline evaluation replay the same retrieval path. See
+[docs/fiqa.md](docs/fiqa.md) for how the corpus, queries, and qrels link
+together.
 
 ## Requirements
 
@@ -43,6 +43,18 @@ BM25 can be prepared independently without an API key:
 ```bash
 uv run python -m scripts.build_indexes --bm25
 ```
+
+## Evaluation
+
+Score retrieval strategies against the FiQA test qrels. The JSON report is
+printed to stdout and written to `var/eval/`; logs go to stderr.
+
+```bash
+uv run python -m scripts.evaluate run --strategy bm25 --mode qrels --sample 100
+```
+
+Omit `--strategy` to evaluate every available strategy and `--sample` to use
+all 648 test queries.
 
 ## Docker
 
