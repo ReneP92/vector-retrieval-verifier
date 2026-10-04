@@ -6,7 +6,7 @@ from typing import assert_never
 
 from app.adapters.datasets.qrels import load_qrels
 from app.bootstrap import build_container
-from app.config import Settings, get_settings
+from app.config import QrelSplit, Settings, get_settings
 from app.domain.models import RetrievalStrategy
 from common.telemetry import TelemetryLogger
 from eval.models import EvaluationMode, EvaluationReport
@@ -19,6 +19,7 @@ def run_evaluation(
     mode: EvaluationMode,
     strategies: Sequence[RetrievalStrategy] | None = None,
     *,
+    split: QrelSplit = QrelSplit.TEST,
     depth: int = 100,
     sample: int | None = None,
     settings: Settings | None = None,
@@ -31,7 +32,7 @@ def run_evaluation(
 
     selected = _resolve_strategies(strategies, container.available_strategies)
 
-    qrels = load_qrels(settings.qrels_path)
+    qrels = load_qrels(settings.qrels_path(split))
     if sample is not None:
         qrels = {qid: qrels[qid] for qid in list(qrels)[:sample]}
     queries = {q.query_id: q.text for q in container.repository.queries() if q.query_id in qrels}
@@ -51,6 +52,7 @@ def run_evaluation(
             dataset=settings.dataset_name,
             corpus_hash=container.repository.corpus_hash,
             depth=depth,
+            split=split,
         )
     elif mode is EvaluationMode.LLM_JUDGE:
         raise NotImplementedError(f"Evaluation mode '{mode}' is not implemented yet.")
@@ -79,7 +81,7 @@ def _resolve_strategies(
 
 def _persist(report: EvaluationReport, eval_dir: Path) -> None:
     eval_dir.mkdir(parents=True, exist_ok=True)
-    path = eval_dir / f"{report.dataset}-{report.mode.value}.json"
+    path = eval_dir / f"{report.dataset}-{report.split}-{report.mode.value}.json"
     path.write_text(report.model_dump_json(indent=2) + "\n", encoding="utf-8")
     logger.info(f"Wrote evaluation report to {path}")
 

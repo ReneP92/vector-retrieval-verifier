@@ -7,7 +7,7 @@ from app.adapters.datasets.qrels import find_excluded_positive_qrels
 from app.adapters.retrieval.bm25 import build_bm25_index
 from app.adapters.retrieval.corpus_policy import prepare_documents
 from app.adapters.retrieval.dense_openai import OpenAIEmbedder, build_dense_index
-from app.config import Settings
+from app.config import QrelSplit, Settings
 
 
 def main() -> None:
@@ -22,7 +22,9 @@ def main() -> None:
     settings = Settings()
     repository = BeirCorpusRepository(settings.corpus_path, settings.queries_path)
     prepared = prepare_documents(list(repository.documents()))
-    _report_exclusions(settings.qrels_path, prepared.excluded_document_ids)
+    _report_exclusions(
+        {split: settings.qrels_path(split) for split in QrelSplit}, prepared.excluded_document_ids
+    )
 
     if args.bm25 or args.all:
         _prepare_target(settings.bm25_dir, args.force, "BM25")
@@ -79,7 +81,9 @@ def _prepare_target(
         )
 
 
-def _report_exclusions(qrels_path: Path, excluded_document_ids: list[str]) -> None:
+def _report_exclusions(
+    qrels_paths: dict[QrelSplit, Path], excluded_document_ids: list[str]
+) -> None:
     if not excluded_document_ids:
         return
     print(
@@ -87,14 +91,14 @@ def _report_exclusions(qrels_path: Path, excluded_document_ids: list[str]) -> No
         "from every retrieval index.",
         flush=True,
     )
-    conflicts = find_excluded_positive_qrels(qrels_path, excluded_document_ids)
-    for conflict in conflicts:
-        print(
-            "Warning: excluded empty passage "
-            f"{conflict.document_id} has positive qrel {conflict.score} "
-            f"for query {conflict.query_id}.",
-            flush=True,
-        )
+    for split, qrels_path in qrels_paths.items():
+        for conflict in find_excluded_positive_qrels(qrels_path, excluded_document_ids):
+            print(
+                "Warning: excluded empty passage "
+                f"{conflict.document_id} has positive {split} qrel {conflict.score} "
+                f"for query {conflict.query_id}.",
+                flush=True,
+            )
 
 
 if __name__ == "__main__":

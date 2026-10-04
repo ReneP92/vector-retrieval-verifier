@@ -2,6 +2,7 @@ from typing import Annotated
 
 import typer
 
+from app.config import QrelSplit
 from app.domain.models import RetrievalStrategy
 from common.telemetry import TelemetryLogger
 from eval.eval import run_evaluation
@@ -33,10 +34,13 @@ def run(
     sample: Annotated[
         int | None, typer.Option("--sample", help="Evaluate only the first N queries.")
     ] = None,
+    split: Annotated[
+        QrelSplit, typer.Option("--split", help="Qrels split. Tune on dev. Report on test.")
+    ] = QrelSplit.TEST,
 ) -> None:
     """Run the evaluation pipeline, print the JSON report to stdout, and write it to var/eval/."""
     try:
-        report = run_evaluation(mode, strategy or None, depth=depth, sample=sample)
+        report = run_evaluation(mode, strategy or None, depth=depth, sample=sample, split=split)
     except (NotImplementedError, RuntimeError) as error:
         logger.error(str(error))
         raise typer.Exit(code=1) from error

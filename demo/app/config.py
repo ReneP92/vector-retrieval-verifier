@@ -1,3 +1,4 @@
+from enum import StrEnum
 from functools import lru_cache
 from pathlib import Path
 
@@ -5,6 +6,11 @@ from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DEMO_ROOT = Path(__file__).resolve().parents[1]
+
+
+class QrelSplit(StrEnum):
+    DEV = "dev"
+    TEST = "test"
 
 
 class Settings(BaseSettings):
@@ -34,6 +40,9 @@ class Settings(BaseSettings):
     top_k: int = Field(default=10, ge=1, le=100)
     generation_k: int = Field(default=5, ge=1, le=20)
 
+    judge_model: str = "gpt-4.1"
+    judge_concurrency: int = 8
+
     @property
     def corpus_path(self) -> Path:
         return self.data_dir / "corpus.jsonl"
@@ -42,9 +51,8 @@ class Settings(BaseSettings):
     def queries_path(self) -> Path:
         return self.data_dir / "queries.jsonl"
 
-    @property
-    def qrels_path(self) -> Path:
-        return self.data_dir / "qrels" / "test.tsv"
+    def qrels_path(self, split: QrelSplit) -> Path:
+        return self.data_dir / "qrels" / f"{split}.tsv"
 
     @property
     def eval_dir(self) -> Path:

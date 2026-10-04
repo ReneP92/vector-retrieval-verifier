@@ -5,6 +5,7 @@ Replay FiQA queries through the retrieval pipeline and score each strategy.
 from collections.abc import Mapping, Sequence
 from time import perf_counter
 
+from app.config import QrelSplit
 from app.domain.models import RetrievalStrategy
 from app.services.retrieval import RetrievalPipeline
 from eval.models import EvaluationMode, EvaluationReport, StrategyReport
@@ -17,6 +18,7 @@ def evaluate_strategies(
     queries: Mapping[str, str],
     strategies: Sequence[RetrievalStrategy],
     *,
+    split: QrelSplit,
     dataset: str,
     corpus_hash: str,
     depth: int = 100,
@@ -33,6 +35,7 @@ def evaluate_strategies(
         mode=EvaluationMode.QRELS,
         depth=depth,
         reports=reports,
+        split=split,
     )
 
 

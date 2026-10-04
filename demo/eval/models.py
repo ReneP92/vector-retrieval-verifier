@@ -2,6 +2,7 @@ from enum import StrEnum
 
 from pydantic import BaseModel
 
+from app.config import QrelSplit
 from app.domain.models import RetrievalStrategy
 
 
@@ -25,3 +26,4 @@ class EvaluationReport(BaseModel):
     mode: EvaluationMode
     depth: int
     reports: list[StrategyReport]
+    split: QrelSplit
