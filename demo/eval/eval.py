@@ -27,12 +27,6 @@ def run_evaluation(
         raise NotImplementedError(f"Evaluation mode '{mode}' is not implemented yet.")
 
     settings = settings or get_settings()
-
-    # rrf/rrf_rerank fuse only candidate_k hits (retrieval.py), so a default candidate_k=50
-    # would silently cap Recall@{depth}. Widen it so every strategy is scored to full depth.
-
-    settings = settings.model_copy(update={"candidate_k": max(settings.candidate_k, depth)})
-
     container = build_container(settings)
     if container.pipeline is None or container.repository is None:
         raise RuntimeError(f"Dataset unavailable: {container.component_status.get('dataset')}")
@@ -89,5 +83,12 @@ def _log_summary(report: EvaluationReport) -> None:
     for item in report.reports:
         scores = "  ".join(f"{name}={value:.4f}" for name, value in item.metrics.items())
         logger.info(
-            f"{item.strategy.value:<12} [{item.num_queries} q,{item.duration_seconds:.1f}s] {scores}"
+            f"{item.strategy.value:<12} [{item.num_queries} q,{item.mean_hits:.1f} hits,"
+            f"{item.duration_seconds:.1f}s] {scores}"
         )
+        # Fused strategies return at most candidate_k hits, which caps recall above that depth.
+        if item.mean_hits < report.depth:
+            logger.warning(
+                f"{item.strategy.value} returned {item.mean_hits:.1f} hits per query on average, "
+                f"fewer than depth {report.depth}; recall at deeper cutoffs is capped"
+            )

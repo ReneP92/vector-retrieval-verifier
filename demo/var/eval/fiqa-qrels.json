@@ -13,7 +13,13 @@
         "recall@10": 0.3195,
         "recall@100": 0.49916666666666665
       },
-      "duration_seconds": 0.07398799993097782
+      "mean_hits": 100.0,
+      "parameters": {
+        "candidate_k": 50,
+        "result_k": 100,
+        "rrf_k": 60
+      },
+      "duration_seconds": 0.07698675012215972
     }
   ]
 }

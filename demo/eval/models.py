@@ -14,6 +14,8 @@ class StrategyReport(BaseModel):
     strategy: RetrievalStrategy
     num_queries: int
     metrics: dict[str, float]
+    mean_hits: float
+    parameters: dict[str, str | int | float | bool]
     duration_seconds: float
 
 
