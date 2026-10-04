@@ -2,6 +2,7 @@
 
 from collections.abc import Sequence
 from pathlib import Path
+from typing import assert_never
 
 from app.adapters.datasets.qrels import load_qrels
 from app.bootstrap import build_container
@@ -9,7 +10,7 @@ from app.config import Settings, get_settings
 from app.domain.models import RetrievalStrategy
 from common.telemetry import TelemetryLogger
 from eval.models import EvaluationMode, EvaluationReport
-from eval.qrels import runner
+from eval.qrels import runner as qrels_runner
 
 logger = TelemetryLogger(__name__)
 
@@ -23,9 +24,6 @@ def run_evaluation(
     settings: Settings | None = None,
 ) -> EvaluationReport:
     """Load the FiQA test split, replay it through each strategy, and persist a report."""
-    if mode is not EvaluationMode.QRELS:
-        raise NotImplementedError(f"Evaluation mode '{mode}' is not implemented yet.")
-
     settings = settings or get_settings()
     container = build_container(settings)
     if container.pipeline is None or container.repository is None:
@@ -42,15 +40,22 @@ def run_evaluation(
     logger.info(
         f"Evaluating {[s.value for s in selected]} over {len(qrels)} queries at depth {depth}"
     )
-    report = runner.evaluate_strategies(
-        container.pipeline,
-        qrels,
-        queries,
-        selected,
-        dataset=settings.dataset_name,
-        corpus_hash=container.repository.corpus_hash,
-        depth=depth,
-    )
+
+    report: EvaluationReport
+    if mode is EvaluationMode.QRELS:
+        report = qrels_runner.evaluate_strategies(
+            container.pipeline,
+            qrels,
+            queries,
+            selected,
+            dataset=settings.dataset_name,
+            corpus_hash=container.repository.corpus_hash,
+            depth=depth,
+        )
+    elif mode is EvaluationMode.LLM_JUDGE:
+        raise NotImplementedError(f"Evaluation mode '{mode}' is not implemented yet.")
+    else:
+        assert_never(mode)
 
     _persist(report, settings.eval_dir)
     _log_summary(report)
